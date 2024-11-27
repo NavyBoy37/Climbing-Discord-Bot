@@ -5,14 +5,19 @@ import boto3  # Dynamo
 import json  # Dynamo
 from botocore.exceptions import ClientError  # Dynamo
 from datetime import datetime  # Dynamo
-from discord import app_commands  # Discord.py
 from textwrap import dedent  # etc
 
-### TO DO ###
-#  make DynamoDB connection.  imports should be ready
-#  All data needs to be manipulated from the user data base
-#  Initalize new dictionary when user is new
-#  Send data and pull data for final results
+
+# TODO: make DynamoDB connection.  imports should be ready
+# TODO: All data needs to be manipulated from the user data base
+# TODO: Initalize new dictionary when user is new
+# TODO: Send data and pull data for final results
+# TODO: Turn auto recommendations on in VSCode
+# TODO: Adjust guild under on ready to be applicable to all servers rather than just yours.
+
+# DynamoDB connection made below (to table)
+dynamodb = boto3.resource("dynamodb")
+table = dynamodb.Table("RockData")
 
 load_dotenv()  # Load variables from .env file
 TOKEN = os.getenv("TOKEN")  # Read a specific variable
@@ -20,7 +25,7 @@ TOKEN = os.getenv("TOKEN")  # Read a specific variable
 
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
-tree = app_commands.CommandTree(client)
+tree = discord.app_commands.CommandTree(client)
 
 #  Below are the Trees and async functions.  These are asynchronous functions that automatically run when / commands are run in the bot
 #  That's why you don't see them called anywhere, it's built into discord.py.
@@ -42,11 +47,14 @@ async def on_ready():
     guild=discord.Object(id=1309552643089240155),
 )
 
-
 #  Multi Variable input is established below.  difficulty and attempts are established variables and ready for work.
 async def climb_tracker(interaction, difficulty: float, sends: int):
-    x = difficulty
-    y = sends
+    user_id = interaction.user.id
+
+    # TODO: Try to pull ID's dictionary from DyanmoDB table
+    # TODO: if it isn't a key in the nested dictionary.
+    # TODO: if ID is not in list, make a new ID in main Dictionary.  If it is, continue to next step.
+    # TODO: Update shared dictionary with difficulty and sends values.  Use shared dictionary to update info for specific user in main dictionary.
 
 
 #  Below will spit out your climbing log each time you enter a value
