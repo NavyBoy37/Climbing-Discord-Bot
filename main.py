@@ -1,38 +1,148 @@
 from dotenv import load_dotenv
-import os  # Discord.py
-import discord  # Discord.py
-import boto3  # Dynamo
-import json  # Dynamo
-from botocore.exceptions import ClientError  # Dynamo
-from datetime import datetime  # Dynamo
-from textwrap import dedent  # etc
+import os
+import discord
+import boto3
+import json
+from botocore.exceptions import ClientError, BotoCoreError
+from datetime import datetime
+from textwrap import dedent
+
+# TODO: Adjust DynamoDB storage structure to be less disgusting
+# TODO: Adjust guild under on ready to be applicable to all servers rather than just yours. Get personal server out of code
+
+# Load environment variables
+load_dotenv()
+
+# Debug prints for AWS credentials
+aws_access = os.getenv("AWS_ACCESS_KEY_ID")
+aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
+aws_region = os.getenv("AWS_REGION")
+
+print("AWS Credentials Check:")
+print(
+    f"Access Key exists and length: {bool(aws_access)} - {len(aws_access) if aws_access else 0}"
+)
+print(
+    f"Secret Key exists and length: {bool(aws_secret)} - {len(aws_secret) if aws_secret else 0}"
+)
+print(f"Region: {aws_region}")
 
 
-# TODO: make DynamoDB connection.  imports should be ready
-# TODO: All data needs to be manipulated from the user data base
-# TODO: Initalize new dictionary when user is new
-# TODO: Send data and pull data for final results
-# TODO: Turn auto recommendations on in VSCode
-# TODO: Adjust guild under on ready to be applicable to all servers rather than just yours.
+def test_aws_connection():
+    try:
+        # Try to explicitly create a new session
+        session = boto3.Session(
+            aws_access_key_id=aws_access,
+            aws_secret_access_key=aws_secret,
+            region_name=aws_region,
+        )
 
-# DynamoDB connection made below (to table)
+        # Create a new DynamoDB resource
+        ddb = session.resource("dynamodb")
+        test_table = ddb.Table("RockData")
+
+        # Try to scan the table
+        response = test_table.scan(Limit=1)
+        print("AWS Test Connection Successful!")
+        print(f"Table Response: {response}")
+        return test_table
+    except Exception as e:
+        print(f"AWS Test Connection Failed: {type(e).__name__}")
+        print(f"Error Message: {str(e)}")
+        raise
+
+
+# Try to create table connection
+try:
+    print("\nAttempting to establish AWS connection...")
+    table = test_aws_connection()
+except Exception as e:
+    print(f"Failed to establish initial AWS connection: {str(e)}")
+
+# Set up DynamoDB connection
+session = boto3.Session(
+    aws_access_key_id=aws_access,
+    aws_secret_access_key=aws_secret,
+    region_name=aws_region,
+)
+
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table("RockData")
 
-load_dotenv()  # Load variables from .env file
-TOKEN = os.getenv("TOKEN")  # Read a specific variable
-
+# Set up Discord bot
+TOKEN = os.getenv("TOKEN")
 
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 tree = discord.app_commands.CommandTree(client)
 
-#  Below are the Trees and async functions.  These are asynchronous functions that automatically run when / commands are run in the bot
-#  That's why you don't see them called anywhere, it's built into discord.py.
+
+def check_and_create_user(user_id, table):
+    try:
+        print(f"Attempting to check user {user_id}")
+
+        response = table.get_item(Key={"id": str(user_id)})
+
+        if "Item" in response:
+            print("User exists!")
+            return True, response["Item"]
+        else:
+            print("Creating new user")
+            new_user = {
+                "id": str(user_id),
+                "climbing_data": {},
+                "created_at": str(datetime.now()),
+            }
+
+            table.put_item(Item=new_user)
+            print("New user created")
+            return False, new_user
+
+    except ClientError as e:
+        error_code = e.response["Error"]["Code"]
+        print(f"DynamoDB Error Code: {error_code}")
+        print(f"Full error: {str(e)}")
+        raise
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        raise
 
 
-#  Below tells Discord the status of the commands your bot offers and gives the go head when ready
-#  Note that client.get_channel uses a chat channel ID rather than the server ID.
+def update_climbing_stats(user_data, difficulty, sends):
+    """Update user's climbing statistics with new send data."""
+    if "climbing_data" not in user_data:
+        user_data["climbing_data"] = {}
+
+    diff_key = str(difficulty)
+    if diff_key in user_data["climbing_data"]:
+        user_data["climbing_data"][diff_key] += sends
+    else:
+        user_data["climbing_data"][diff_key] = sends
+
+    user_data["last_updated"] = str(datetime.now())
+    return user_data
+
+
+def generate_stats_summary(user_data):
+    """Generate a formatted summary of user's climbing statistics."""
+    summary = "\n📊 Your Updated Climbing Stats 📊\n"
+
+    if not user_data.get("climbing_data"):
+        return summary + "\nNo climbs recorded yet!"
+
+    sorted_difficulties = sorted(
+        user_data["climbing_data"].items(), key=lambda x: float(x[0])
+    )
+
+    for diff, sends in sorted_difficulties:
+        summary += f"\n{diff}: {sends} sends"
+
+    total_sends = sum(sends for _, sends in sorted_difficulties)
+    summary += f"\n\nTotal Sends: {total_sends}"
+
+    return summary
+
+
 @client.event
 async def on_ready():
     await tree.sync(guild=discord.Object(id=1309552643089240155))
@@ -40,38 +150,58 @@ async def on_ready():
     await channel.send("Ready to remember, boss!")
 
 
-#  Below creates the /rocktracker and links it to your discord ID
 @tree.command(
     name="rocktracker",
     description="Keeps a tally of climbs you've sent.",
     guild=discord.Object(id=1309552643089240155),
 )
-
-#  Multi Variable input is established below.  difficulty and attempts are established variables and ready for work.
 async def climb_tracker(interaction, difficulty: float, sends: int):
-    user_id = interaction.user.id
+    print("\n--- Starting climb_tracker ---")
+    user_id = str(interaction.user.id)
+    print(f"Processing for user: {user_id}")
 
-    # TODO: Try to pull ID's dictionary from DyanmoDB table
-    # TODO: if it isn't a key in the nested dictionary.
-    # TODO: if ID is not in list, make a new ID in main Dictionary.  If it is, continue to next step.
-    # TODO: Update shared dictionary with difficulty and sends values.  Use shared dictionary to update info for specific user in main dictionary.
+    try:
+        exists, user_data = check_and_create_user(user_id, table)
+
+        if exists:
+            message = "Found your record! Processing your send...\n"
+        else:
+            message = "Created new climbing record for you!\n"
+
+        # Update and save the user's climbing data
+        updated_data = update_climbing_stats(user_data, difficulty, sends)
+        table.put_item(Item=updated_data)
+
+        # Generate and append statistics summary
+        message += generate_stats_summary(updated_data)
+
+    except Exception as e:
+        print(f"Error in climb_tracker: {str(e)}")
+        message = "Sorry, there was an error processing your climbing record."
+
+    await interaction.response.send_message(message)
 
 
-#  Below will spit out your climbing log each time you enter a value
+@tree.command(
+    name="savedclimbs",
+    description="View your climbing log.",
+    guild=discord.Object(id=1309552643089240155),
+)
 async def saved_climbs(interaction):
-    print(interaction)
-    await interaction.response.send_message(
-        dedent(
-            """
-            5.8  -
-            5.9  -
-            5.10 -
-            5.11 -
-            5.12 -
-            5.13 -
-            """
-        )
-    )
+    user_id = str(interaction.user.id)
+
+    try:
+        exists, user_data = check_and_create_user(user_id, table)
+        if exists:
+            message = generate_stats_summary(user_data)
+        else:
+            message = "No climbing record found! Use /rocktracker to start logging your climbs."
+    except Exception as e:
+        print(f"Error in saved_climbs: {str(e)}")
+        message = "Sorry, there was an error retrieving your climbing record."
+
+    await interaction.response.send_message(message)
 
 
+# Start the bot
 client.run(TOKEN)
