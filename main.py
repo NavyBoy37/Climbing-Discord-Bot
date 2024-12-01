@@ -14,14 +14,12 @@ from MyDynamoFunctions import (
 )
 
 # TODO: Adjust DynamoDB storage structure to be less disgusting
-# TODO: Adjust guild under on ready to be applicable to all servers rather than just yours. Get personal server out of code
 # TODO: Add readme
 # TODO: Add some kind of rolling average
 # TODO: Make function to check if user_id is in "RockData" exists now.  TODO RETROFIT.  Return True or False
 """ TODO: If bad data gets into dynamo, it will prevent all bot operations except deletehistory from occuring.
 It completely corrupts the data for update_climbing_stats and rocktracker command"""
 # TODO: Add way to delete specific entries so if data gets corrupted last entry can be deleted.  Or if 5.1 gets added it can be removed.
-# TODO: 5.10a-d are allowed, but e and beyond break it.  Prevent it from being inputted
 # Load environment variables
 load_dotenv()
 DISCORD_GUILD = int(os.getenv("DISCORD_GUILD"))
@@ -43,6 +41,74 @@ client = discord.Client(intents=intents)
 tree = discord.app_commands.CommandTree(client)
 
 
+def validate_climbing_grade(grade: str) -> tuple[bool, str]:
+    """
+    Validates if a climbing grade is in the correct format.
+    Returns (is_valid, error_message).
+    """
+    # Check for empty or pure whitespace input
+    if not grade or not grade.strip():
+        return False, "Grade cannot be empty"
+
+    # Strip whitespace and convert to lowercase for consistency
+    grade = grade.strip().lower()
+
+    # Check for any internal whitespace
+    if " " in grade:
+        return False, "Grade cannot contain spaces"
+
+    # Check for multiple decimal points
+    if grade.count(".") > 1:
+        return False, "Grade cannot have multiple decimal points"
+
+    # Handle V grades (bouldering)
+    if grade.startswith("v"):
+        try:
+            v_grade = int(grade[1:])
+            if 0 <= v_grade <= 17:  # Typical range for V grades
+                return True, ""
+            return False, "V grade must be between V0 and V17"
+        except ValueError:
+            return (
+                False,
+                "Invalid V grade format. Must be V followed by a number (e.g., V5)",
+            )
+
+    # Handle 5.xx grades (sport/trad climbing)
+    try:
+        # Convert "510a" format to "5.10a" format
+        if grade.startswith("5") and "." not in grade:
+            grade = f"{grade[0]}.{grade[1:]}"
+
+        if not grade.startswith("5."):
+            return False, "Grade must start with '5.' or be a V grade"
+
+        # Split grade into numeric and letter parts
+        base_grade = grade[2:].rstrip("abcd")
+        letter_grade = grade[2 + len(base_grade) :]
+
+        # Validate numeric part contains only digits
+        if not base_grade.isdigit() and not base_grade.replace(".", "").isdigit():
+            return (
+                False,
+                "Invalid grade format - must contain only numbers and optional a/b/c/d",
+            )
+
+        # Validate numeric part
+        grade_num = float(base_grade)
+        if not (5 <= grade_num <= 15):  # Typical range for sport/trad
+            return False, "Grade must be between 5.5 and 5.15"
+
+        # Validate letter grade
+        if letter_grade and letter_grade not in ["a", "b", "c", "d"]:
+            return False, "Letter grade must be a, b, c, or d"
+
+        return True, ""
+
+    except ValueError:
+        return False, "Invalid grade format"
+
+
 def update_climbing_stats(user_data, difficulty, sends):
     """Update user's climbing statistics with new send data."""
     if "climbing_data" not in user_data:
@@ -59,12 +125,22 @@ def update_climbing_stats(user_data, difficulty, sends):
 
 
 def grade_to_number(grade):
+    # Normalize input
+    grade = grade.strip().lower()
+
     # Handle V grades
-    if grade.startswith("V"):
-        return float(grade[1:]) + 500  # Adding 500 to sort V grades after 5.xx grades
+    if grade.startswith("v"):
+        try:
+            # Just take the number part after 'v'
+            v_number = grade[1:].strip()
+            return (
+                float(v_number) + 500
+            )  # Adding 500 to sort V grades after 5.xx grades
+        except ValueError:
+            raise ValueError(f"Invalid V-grade format: {grade}")
 
     # Handle 5.xx grades
-    if "." not in grade:
+    if "." not in grade and grade.startswith("5"):
         # Convert "510" to "5.10"
         grade = f"{grade[0]}.{grade[1:]}"
 
@@ -110,6 +186,27 @@ async def on_ready():
 async def climb_tracker(interaction, difficulty: str, sends: int):
     user_id = str(interaction.user.id)
 
+    # Validate and standardize the climbing grade first
+    difficulty = difficulty.strip().lower()
+
+    # Quick check for invalid letter grades
+    if any(
+        letter in difficulty
+        for letter in "efghijklmnopqrstuvwxyz"
+        if letter not in "abcdv"
+    ):
+        await interaction.response.send_message(
+            "Invalid grade format: Only grades a, b, c, d, or v are allowed"
+        )
+        return
+
+    # Try to convert/validate the grade
+    try:
+        # Just test the conversion - if it fails, we catch it
+        grade_to_number(difficulty)
+    except ValueError as e:
+        await interaction.response.send_message(f"Invalid grade format: {str(e)}")
+        return
     try:
         exists, user_data = check_and_create_user(user_id, table)
 
