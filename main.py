@@ -21,7 +21,10 @@ from MyDynamoFunctions import (
 It completely corrupts the data for update_climbing_stats and rocktracker command"""
 # TODO: Add way to delete specific entries so if data gets corrupted last entry can be deleted.  Or if 5.1 gets added it can be removed.
 
-# Variables for developer terminal
+"""
+Below variables change names of bot commands
+and associated print statements for terminal
+"""
 history = "climbhistory"  # name of bot command
 delete = "profileannihilation"  # name of bot command
 tracker = "rocktracker"  # name of bot command
@@ -191,7 +194,7 @@ async def on_ready():
 
 
 @tree.command(
-    name="rocktracker",
+    name=tracker,
     description="Keeps a tally of climbs you've sent.",
     guild=discord.Object(id=DISCORD_GUILD),
 )
@@ -238,7 +241,7 @@ async def climb_tracker(interaction, difficulty: str, sends: int):
 
 
 @tree.command(
-    name="climbhistory",
+    name=history,
     description="View your climbing log.",
     guild=discord.Object(id=DISCORD_GUILD),
 )
@@ -260,7 +263,7 @@ async def saved_climbs(interaction):
 
 
 @tree.command(
-    name="profileannihilation",
+    name=delete,
     description="Get a clean slate!",
     guild=discord.Object(id=DISCORD_GUILD),
 )
