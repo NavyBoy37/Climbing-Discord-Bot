@@ -32,6 +32,7 @@ def test_aws_connection():
 
 
 def check_user_exists(id, table) -> bool:
+    print("... checking if user exists w/ check_user_exists")
     # discord user id / boolean
     """intakes discord.py user_id (THIS IS "id" IN DYNAMO.  Very important)
     input id: int / return boolean
@@ -47,6 +48,7 @@ def check_user_exists(id, table) -> bool:
 
 
 def check_and_create_user(id, table):
+    print("... checking if user exists / creating user w/ check_and_create_user")
     # Discord id, Dynamo table / boolean, dictionary item (existing or new)
     try:
         response = table.get_item(Key={"id": str(id)})

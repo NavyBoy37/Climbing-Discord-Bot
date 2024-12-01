@@ -20,6 +20,13 @@ from MyDynamoFunctions import (
 """ TODO: If bad data gets into dynamo, it will prevent all bot operations except deletehistory from occuring.
 It completely corrupts the data for update_climbing_stats and rocktracker command"""
 # TODO: Add way to delete specific entries so if data gets corrupted last entry can be deleted.  Or if 5.1 gets added it can be removed.
+
+# Variables for developer terminal
+history = "climbhistory"  # name of bot command
+delete = "profileannihilation"  # name of bot command
+tracker = "rocktracker"  # name of bot command
+
+
 # Load environment variables
 load_dotenv()
 DISCORD_GUILD = int(os.getenv("DISCORD_GUILD"))
@@ -42,6 +49,7 @@ tree = discord.app_commands.CommandTree(client)
 
 
 def validate_climbing_grade(grade: str) -> tuple[bool, str]:
+    print("...validating data w/ validate_climbing_grade")
     """
     Validates if a climbing grade is in the correct format.
     Returns (is_valid, error_message).
@@ -110,6 +118,7 @@ def validate_climbing_grade(grade: str) -> tuple[bool, str]:
 
 
 def update_climbing_stats(user_data, difficulty, sends):
+    print("... updating climber stats w/ update_climbing_stats")
     """Update user's climbing statistics with new send data."""
     if "climbing_data" not in user_data:
         user_data["climbing_data"] = {}
@@ -125,6 +134,7 @@ def update_climbing_stats(user_data, difficulty, sends):
 
 
 def grade_to_number(grade):
+    print("... validating data w/ grade_to_numbers")
     # Normalize input
     grade = grade.strip().lower()
 
@@ -150,6 +160,7 @@ def grade_to_number(grade):
 
 
 def generate_stats_summary(user_data):
+    print("... generating stats summary w/ generate_stats_summary")
     # Generate a formatted summary of user's climbing statistics.
     summary = "\n📊 Your Updated Climbing Stats 📊\n"
 
@@ -173,6 +184,7 @@ def generate_stats_summary(user_data):
 
 @client.event
 async def on_ready():
+    print("Executing on_ready...")
     await tree.sync(guild=discord.Object(id=DISCORD_GUILD))
     channel = client.get_channel(DISCORD_CHANNEL)
     await channel.send("Ready to remember, boss!")
@@ -184,6 +196,7 @@ async def on_ready():
     guild=discord.Object(id=DISCORD_GUILD),
 )
 async def climb_tracker(interaction, difficulty: str, sends: int):
+    print("Executing " + tracker + "...")
     user_id = str(interaction.user.id)
 
     # Validate and standardize the climbing grade first
@@ -201,12 +214,7 @@ async def climb_tracker(interaction, difficulty: str, sends: int):
         return
 
     # Try to convert/validate the grade
-    try:
-        # Just test the conversion - if it fails, we catch it
-        grade_to_number(difficulty)
-    except ValueError as e:
-        await interaction.response.send_message(f"Invalid grade format: {str(e)}")
-        return
+
     try:
         exists, user_data = check_and_create_user(user_id, table)
 
@@ -235,6 +243,7 @@ async def climb_tracker(interaction, difficulty: str, sends: int):
     guild=discord.Object(id=DISCORD_GUILD),
 )
 async def saved_climbs(interaction):
+    print("Executing " + history + "...")
     user_id = str(interaction.user.id)
 
     try:
@@ -256,14 +265,17 @@ async def saved_climbs(interaction):
     guild=discord.Object(id=DISCORD_GUILD),
 )
 async def reset_data(interaction):
+    print("Executing " + delete + "...")
     user_id = interaction.user.id
 
     exists = check_user_exists(user_id, table)
 
     if exists == True:
         table.delete_item(Key={"id": str(user_id)})
+        print("User exists.  Deleting profile")
         return await interaction.response.send_message("Data destroyed! :D")
     else:
+        print("No user exists.  Creating profile")
         return await interaction.response.send_message("No data to kill, master... :(")
 
 
