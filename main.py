@@ -7,6 +7,12 @@ from botocore.exceptions import ClientError, BotoCoreError
 from datetime import datetime
 from textwrap import dedent
 
+from MyDynamoFunctions import (
+    test_aws_connection,  # None / Returns "RockData" Dynamo.db table
+    check_user_exists,  # discord user id / boolean
+    check_and_create_user,  # Discord id, Dynamo table / boolean, dictionary item (existing or new)
+)
+
 # TODO: Adjust DynamoDB storage structure to be less disgusting
 # TODO: Adjust guild under on ready to be applicable to all servers rather than just yours. Get personal server out of code
 # TODO: Fix 5.10 showing as 5.1
@@ -14,6 +20,7 @@ from textwrap import dedent
 # TODO: Add some kind of rolling average
 # TODO: Make function to check if user_id is in "RockData" exists now.  TODO RETROFIT.  Return True or False
 # TODO: Replace manual entries of server guild ID with .env extracted data.  You'll only have to hardcode one variable.
+# TODO: Do I need os.getenv variables below since I have the MyDynamoFunctions.py file?
 
 # Load environment variables
 load_dotenv()
@@ -22,27 +29,6 @@ load_dotenv()
 aws_access = os.getenv("AWS_ACCESS_KEY_ID")
 aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
 aws_region = os.getenv("AWS_REGION")
-
-
-def test_aws_connection():
-    try:
-        # Try to explicitly create a new session
-        session = boto3.Session(
-            aws_access_key_id=aws_access,
-            aws_secret_access_key=aws_secret,
-            region_name=aws_region,
-        )
-
-        # Create a new DynamoDB resource
-        ddb = session.resource("dynamodb")
-        test_table = ddb.Table("RockData")
-
-        print("AWS Test Connection Successful!")
-        return test_table
-    except Exception as e:
-        print(f"AWS Test Connection Failed: {type(e).__name__}")
-        print(f"Error Message: {str(e)}")
-        raise
 
 
 # Try to create table connection
@@ -61,44 +47,6 @@ client = discord.Client(intents=intents)
 tree = discord.app_commands.CommandTree(client)
 
 
-def check_user_exists(id) -> bool:
-    id = str(id)
-    try:
-
-        response = table.get_item(Key={"id": id})
-        return "Item" in response
-
-    except ClientError:
-        return False
-
-
-def check_and_create_user(user_id, table):
-    try:
-        response = table.get_item(Key={"id": str(user_id)})
-
-        if "Item" in response:
-            return True, response["Item"]
-        else:
-            new_user = {
-                "id": str(user_id),
-                "climbing_data": {},
-                "created_at": str(datetime.now()),
-            }
-
-            table.put_item(Item=new_user)
-            print("New user created")
-            return False, new_user
-
-    except ClientError as e:
-        error_code = e.response["Error"]["Code"]
-        print(f"DynamoDB Error Code: {error_code}")
-        print(f"Full error: {str(e)}")
-        raise
-    except Exception as e:
-        print(f"Unexpected error: {str(e)}")
-        raise
-
-
 def update_climbing_stats(user_data, difficulty, sends):
     """Update user's climbing statistics with new send data."""
     if "climbing_data" not in user_data:
@@ -115,7 +63,7 @@ def update_climbing_stats(user_data, difficulty, sends):
 
 
 def generate_stats_summary(user_data):
-    """Generate a formatted summary of user's climbing statistics."""
+    # Generate a formatted summary of user's climbing statistics.
     summary = "\n📊 Your Updated Climbing Stats 📊\n"
 
     if not user_data.get("climbing_data"):
@@ -200,13 +148,13 @@ async def saved_climbs(interaction):
 async def reset_data(interaction):
     user_id = interaction.user.id
 
-    exists = check_user_exists(user_id)
+    exists = check_user_exists(user_id, table)
 
     if exists == True:
         table.delete_item(Key={"id": str(user_id)})
         return await interaction.response.send_message("Data destroyed! :D")
     else:
-        return await interaction.response.send_message("No data to kill, master... :()")
+        return await interaction.response.send_message("No data to kill, master... :(")
 
 
 # Start the bot
