@@ -9,6 +9,11 @@ from textwrap import dedent
 
 # TODO: Adjust DynamoDB storage structure to be less disgusting
 # TODO: Adjust guild under on ready to be applicable to all servers rather than just yours. Get personal server out of code
+# TODO: Fix 5.10 showing as 5.1
+# TODO: Add readme
+# TODO: Add some kind of rolling average
+# TODO: Make function to check if user_id is in "RockData" exists now.  TODO RETROFIT.  Return True or False
+# TODO: Replace manual entries of server guild ID with .env extracted data.  You'll only have to hardcode one variable.
 
 # Load environment variables
 load_dotenv()
@@ -17,15 +22,6 @@ load_dotenv()
 aws_access = os.getenv("AWS_ACCESS_KEY_ID")
 aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
 aws_region = os.getenv("AWS_REGION")
-
-print("AWS Credentials Check:")
-print(
-    f"Access Key exists and length: {bool(aws_access)} - {len(aws_access) if aws_access else 0}"
-)
-print(
-    f"Secret Key exists and length: {bool(aws_secret)} - {len(aws_secret) if aws_secret else 0}"
-)
-print(f"Region: {aws_region}")
 
 
 def test_aws_connection():
@@ -41,10 +37,7 @@ def test_aws_connection():
         ddb = session.resource("dynamodb")
         test_table = ddb.Table("RockData")
 
-        # Try to scan the table
-        response = test_table.scan(Limit=1)
         print("AWS Test Connection Successful!")
-        print(f"Table Response: {response}")
         return test_table
     except Exception as e:
         print(f"AWS Test Connection Failed: {type(e).__name__}")
@@ -59,15 +52,6 @@ try:
 except Exception as e:
     print(f"Failed to establish initial AWS connection: {str(e)}")
 
-# Set up DynamoDB connection
-session = boto3.Session(
-    aws_access_key_id=aws_access,
-    aws_secret_access_key=aws_secret,
-    region_name=aws_region,
-)
-
-dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table("RockData")
 
 # Set up Discord bot
 TOKEN = os.getenv("TOKEN")
@@ -77,17 +61,24 @@ client = discord.Client(intents=intents)
 tree = discord.app_commands.CommandTree(client)
 
 
+def check_user_exists(id) -> bool:
+    id = str(id)
+    try:
+
+        response = table.get_item(Key={"id": id})
+        return "Item" in response
+
+    except ClientError:
+        return False
+
+
 def check_and_create_user(user_id, table):
     try:
-        print(f"Attempting to check user {user_id}")
-
         response = table.get_item(Key={"id": str(user_id)})
 
         if "Item" in response:
-            print("User exists!")
             return True, response["Item"]
         else:
-            print("Creating new user")
             new_user = {
                 "id": str(user_id),
                 "climbing_data": {},
@@ -156,9 +147,7 @@ async def on_ready():
     guild=discord.Object(id=1309552643089240155),
 )
 async def climb_tracker(interaction, difficulty: float, sends: int):
-    print("\n--- Starting climb_tracker ---")
     user_id = str(interaction.user.id)
-    print(f"Processing for user: {user_id}")
 
     try:
         exists, user_data = check_and_create_user(user_id, table)
@@ -201,6 +190,23 @@ async def saved_climbs(interaction):
         message = "Sorry, there was an error retrieving your climbing record."
 
     await interaction.response.send_message(message)
+
+
+@tree.command(
+    name="resetdata",
+    description="Get a clean slate!",
+    guild=discord.Object(id=1309552643089240155),
+)
+async def reset_data(interaction):
+    user_id = interaction.user.id
+
+    exists = check_user_exists(user_id)
+
+    if exists == True:
+        table.delete_item(Key={"id": str(user_id)})
+        return await interaction.response.send_message("Data destroyed! :D")
+    else:
+        return await interaction.response.send_message("No data to kill, master... :()")
 
 
 # Start the bot
