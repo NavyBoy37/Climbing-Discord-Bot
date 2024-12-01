@@ -18,20 +18,14 @@ from MyDynamoFunctions import (
 # TODO: Add readme
 # TODO: Add some kind of rolling average
 # TODO: Make function to check if user_id is in "RockData" exists now.  TODO RETROFIT.  Return True or False
-# TODO: Replace manual entries of server guild ID with .env extracted data.  You'll only have to hardcode one variable.
-# TODO: Do I need os.getenv variables below since I have the MyDynamoFunctions.py file?
 """ TODO: If bad data gets into dynamo, it will prevent all bot operations except deletehistory from occuring.
 It completely corrupts the data for update_climbing_stats and rocktracker command"""
 # TODO: Add way to delete specific entries so if data gets corrupted last entry can be deleted.  Or if 5.1 gets added it can be removed.
 # TODO: 5.10a-d are allowed, but e and beyond break it.  Prevent it from being inputted
 # Load environment variables
 load_dotenv()
-
-# Debug prints for AWS credentials
-aws_access = os.getenv("AWS_ACCESS_KEY_ID")
-aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
-aws_region = os.getenv("AWS_REGION")
-
+DISCORD_GUILD = int(os.getenv("DISCORD_GUILD"))
+DISCORD_CHANNEL = int(os.getenv("DISCORD_CHANNEL"))
 
 # Try to create table connection
 try:
@@ -103,15 +97,15 @@ def generate_stats_summary(user_data):
 
 @client.event
 async def on_ready():
-    await tree.sync(guild=discord.Object(id=1309552643089240155))
-    channel = client.get_channel(1309552643089240158)
+    await tree.sync(guild=discord.Object(id=DISCORD_GUILD))
+    channel = client.get_channel(DISCORD_CHANNEL)
     await channel.send("Ready to remember, boss!")
 
 
 @tree.command(
     name="rocktracker",
     description="Keeps a tally of climbs you've sent.",
-    guild=discord.Object(id=1309552643089240155),
+    guild=discord.Object(id=DISCORD_GUILD),
 )
 async def climb_tracker(interaction, difficulty: str, sends: int):
     user_id = str(interaction.user.id)
@@ -139,9 +133,9 @@ async def climb_tracker(interaction, difficulty: str, sends: int):
 
 
 @tree.command(
-    name="rockhistory",
+    name="climbhistory",
     description="View your climbing log.",
-    guild=discord.Object(id=1309552643089240155),
+    guild=discord.Object(id=DISCORD_GUILD),
 )
 async def saved_climbs(interaction):
     user_id = str(interaction.user.id)
@@ -160,9 +154,9 @@ async def saved_climbs(interaction):
 
 
 @tree.command(
-    name="deletehistory",
+    name="profileannihilation",
     description="Get a clean slate!",
-    guild=discord.Object(id=1309552643089240155),
+    guild=discord.Object(id=DISCORD_GUILD),
 )
 async def reset_data(interaction):
     user_id = interaction.user.id
