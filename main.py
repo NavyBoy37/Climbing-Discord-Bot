@@ -6,26 +6,42 @@ import json
 from botocore.exceptions import ClientError, BotoCoreError
 from datetime import datetime
 from textwrap import dedent
-from climbingstats import (
+from climbing_stats import (
     validate_climbing_grade,
     update_climbing_stats,
     grade_to_number,
     generate_stats_summary,
 )
-from MyDynamoFunctions import (
+from dynamo_functions import (
+    is_emoji_free,
     test_aws_connection,  # None / Returns "RockData" Dynamo.db table
     check_user_exists,  # discord user id / boolean
     check_and_create_user,  # Discord id, Dynamo table / boolean, dictionary item (existing or new)
 )
 
+# TODO: turn table name into a changeable variable.  Put in .env
 # TODO: Adjust DynamoDB storage structure to be less disgusting
+# TODO:  Be inclusive rather than exclusive for data validation
 # TODO: Add readme
 # TODO: Add some kind of rolling average
+# TODO: Find way to make no DISCORD_GUILD necessary.  Make it a default connect to any server.
 # TODO: Make function to check if user_id is in "RockData" exists now.  TODO RETROFIT.  Return True or False
 """ TODO: If bad data gets into dynamo, it will prevent all bot operations except deletehistory from occuring.
 It completely corrupts the data for update_climbing_stats and rocktracker command"""
 # TODO: Add way to delete specific entries so if data gets corrupted last entry can be deleted.  Or if 5.1 gets added it can be removed.
 # TODO: Investigate why grade_to_numbers runs once for each unique difficulty grade tracked.
+# TODO: Put /rocktracker in markdown font for discord notification
+# TODO: $$$$ input in difficulty broke data
+# TODO: 5 in difficulty input broke code.
+# TODO: Get channel by name and not ID
+"""
+Inputs that broke code...
+Difficulty:  $$$$
+Difficulty:  5
+Difficulty:  a
+Sends: -1 (didn't break code, but still incorrect).
+Difficulty:  test 5.8v
+"""
 
 """
 Below variables change names of bot commands
@@ -47,7 +63,7 @@ try:
     table = test_aws_connection()
 except Exception as e:
     print(f"Failed to establish initial AWS connection: {str(e)}")
-
+##############################
 
 # Set up Discord bot
 TOKEN = os.getenv("TOKEN")
@@ -73,6 +89,11 @@ async def on_ready():
 async def climb_tracker(interaction, difficulty: str, sends: int):
     print("Executing " + tracker + "...")
     user_id = str(interaction.user.id)
+
+    is_valid, error_message = is_emoji_free(difficulty)
+    if not is_valid:
+        await interaction.response.send_message(error_message)
+        return
 
     # Validate and standardize the climbing grade first
     difficulty = difficulty.strip().lower()
@@ -150,7 +171,7 @@ async def reset_data(interaction):
         print("User exists.  Deleting profile")
         return await interaction.response.send_message("Data destroyed! :D")
     else:
-        print("No user exists.  Creating profile")
+        print("No user exists.")
         return await interaction.response.send_message("No data to kill, master... :(")
 
 

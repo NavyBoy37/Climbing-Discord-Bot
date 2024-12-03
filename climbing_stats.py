@@ -1,5 +1,5 @@
 from datetime import datetime
-from MyDynamoFunctions import (
+from dynamo_functions import (
     test_aws_connection,  # None / Returns "RockData" Dynamo.db table
     check_user_exists,  # discord user id / boolean
     check_and_create_user,  # Discord id, Dynamo table / boolean, dictionary item (existing or new)

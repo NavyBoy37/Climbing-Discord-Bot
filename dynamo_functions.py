@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import os
 from botocore.exceptions import ClientError
 from datetime import datetime
+import re
 
 load_dotenv()
 
@@ -74,3 +75,42 @@ def check_and_create_user(id, table):
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         raise
+
+
+def is_emoji_free(text: str) -> tuple[bool, str]:
+    """
+    Check if the input text contains any emojis.
+    Returns (is_valid, error_message).
+
+    Args:
+        text (str): The text to check for emojis
+
+    Returns:
+        tuple[bool, str]: (True, "") if no emojis found, (False, error_message) if emojis found
+    """
+    # Regex pattern to match emoji characters
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        "\U00002702-\U000027B0"  # dingbats
+        "\U000024C2-\U0001F251"
+        "\U0001f926-\U0001f937"  # additional emoticons
+        "\U00010000-\U0010ffff"  # additional symbols
+        "\u2640-\u2642"
+        "\u2600-\u2B55"
+        "\u200d"
+        "\u23cf"
+        "\u23e9"
+        "\u231a"
+        "\u3030"
+        "\ufe0f"
+        "]+",
+        flags=re.UNICODE,
+    )
+
+    if emoji_pattern.search(text):
+        return False, "No fun allowed >:("
+    return True, ""
