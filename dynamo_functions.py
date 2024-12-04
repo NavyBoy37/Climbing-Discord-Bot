@@ -10,11 +10,13 @@ load_dotenv()
 aws_access = os.getenv("AWS_ACCESS_KEY_ID")
 aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
 aws_region = os.getenv("AWS_REGION")
+TABLE = os.getenv("TABLE")
 
 
 def test_aws_connection():
-    # None / Returns "RockData" Dynamo.db table
+    # None / Returns TABLE Dynamo.db table
     try:
+        print("\nAttempting to establish AWS connection...")
         session = boto3.Session(
             aws_access_key_id=aws_access,
             aws_secret_access_key=aws_secret,
@@ -22,7 +24,7 @@ def test_aws_connection():
         )
 
         ddb = session.resource("dynamodb")
-        test_table = ddb.Table("RockData")
+        test_table = ddb.Table(TABLE)
 
         print("AWS Test Connection Successful!")
         return test_table
