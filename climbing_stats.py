@@ -110,21 +110,26 @@ def difficulty_validation(
             if sends <= 0:
                 return True, difficulty
             else:
-                return False, "Bad input, try a number > 0"
+                return False, "Bad input, use a number less than 0"
         else:
             return False, "Bad input, try 5.5, 5.5a, 5.5b ... or V1, V2, V3 ... etc"
 
 
 def update_climbing_stats(user_data, difficulty, sends):
     print("... updating climber stats w/ update_climbing_stats")
-    """Update user's climbing statistics with new send data."""
     if "climbing_data" not in user_data:
         user_data["climbing_data"] = {}
 
     diff_key = str(difficulty)
     if diff_key in user_data["climbing_data"]:
-        user_data["climbing_data"][diff_key] += sends
+        new_total = user_data["climbing_data"][diff_key] + sends  # <- Add this line
+        if new_total <= 0:  # <- Add this line
+            del user_data["climbing_data"][diff_key]  # <- Add this line
+            return user_data  # <- Add this line
+        user_data["climbing_data"][diff_key] = new_total  # <- Add this line
     else:
+        if sends <= 0:  # <- Add this line
+            return user_data  # <- Add this line
         user_data["climbing_data"][diff_key] = sends
 
     user_data["last_updated"] = str(datetime.now())

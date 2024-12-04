@@ -1,15 +1,5 @@
 """
-Changes ~~~
--moved print statement to aws connection function
--created difficulty_validation function
--removed validate_climbing_grade
--adjusted display_sort to put hardest grades at top and account for letter difficulties
--Made UI summary even and more readable with discord code block
--Updated UI rocktracker message
--Made DISCORD_GUILD global.  Specific guild ID not required
--Changed bot messages and terminal debug messages
--Prevented 0's and negative numbers from being entered in sends
--added remove_climb command that will not register and hasn't been tested.
+Changes:
 """
 
 from dotenv import load_dotenv
@@ -49,7 +39,7 @@ and associated print statements for terminal
 history = "climbhistory"  # name of bot command
 delete = "profileannihilation"  # name of bot command
 tracker = "rocktracker"  # name of bot command
-remove_command = "remove_climb"  # name of bot command
+remove_command = "remove"  # name of bot command
 
 
 # Load environment variables
@@ -160,15 +150,12 @@ async def reset_data(interaction):
         return await interaction.response.send_message("No data to kill, master... :(")
 
 
-print("Before Tree")
-
-
 @tree.command(
     name=remove_command,
-    description="Remove climbs from your history",
+    description="Remove climbs from your history.  Input number < 0 (eg. -1, -2, ...)",
 )
-async def remove_climb(interaction, difficulty: str, sends: int):
-    print("in funk")
+async def remove(interaction, difficulty: str, sends: int):
+    print("Executing remove_climb")
     print("Executing " + remove_command + "...")
     user_id = str(interaction.user.id)
     removing = True
@@ -196,6 +183,25 @@ async def remove_climb(interaction, difficulty: str, sends: int):
     else:
         message = difficulty
         await interaction.response.send_message(message)
+
+
+@tree.command(name="resetcommands", description="Clear and resync all bot commands")
+async def reset_commands(interaction):
+    if interaction.user.guild_permissions.administrator:
+        await interaction.response.defer()
+
+        # Clear global commands
+        await client.http.bulk_upsert_global_commands(client.application_id, [])
+
+        # Clear guild commands
+        await client.http.bulk_upsert_guild_commands(
+            client.application_id, interaction.guild_id, []
+        )
+
+        await tree.sync()
+        await interaction.followup.send("Commands cleared and resynced!")
+    else:
+        await interaction.response.send_message("You need administrator permissions!")
 
 
 # Start the bot
