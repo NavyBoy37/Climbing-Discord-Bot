@@ -96,7 +96,7 @@ def difficulty_validation(
         "V16",
         "V17",
     ]
-    print(removing)  # test
+
     if removing == False:
         if difficulty in VALID_GRADES:
             if sends > 0:

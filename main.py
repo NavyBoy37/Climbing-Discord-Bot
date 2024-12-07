@@ -1,5 +1,8 @@
 """
 Changes:
+removed discord_channel.env import
+removed startup message
+started working on readme
 """
 
 from dotenv import load_dotenv
@@ -18,19 +21,10 @@ from dynamo_functions import (
 
 # TODO: Add readme
 # TODO: Add some kind of rolling average
-# TODO: Is channel necessary?
-# TODO: Delete entries by adding -1 to the difficulty.  Make data validation remove entries with 0 or less.  Get command to register and test it
 # TODO: Add /help documentation
-# TODO: Investigate why display_sort runs once for each unique difficulty grade tracked.
-# TODO: Get channel by name and not ID
-"""
-Inputs that broke code...
-Difficulty:  $$$$
-Difficulty:  5
-Difficulty:  a
-Sends: -1 (didn't break code, but still incorrect).
-Difficulty:  test 5.8v
-"""
+# TODO: Get date of entries with discord.py and add it to dynamo
+# TODO: Create some kind of metric for showing improvement over time.
+
 
 """
 Below variables change names of bot commands
@@ -42,11 +36,6 @@ tracker = "rocktracker"  # name of bot command
 remove_command = "remove"  # name of bot command
 
 
-# Load environment variables
-load_dotenv()
-
-DISCORD_CHANNEL = int(os.getenv("DISCORD_CHANNEL"))
-
 # Try to create table connection
 try:
     table = test_aws_connection()
@@ -54,6 +43,8 @@ except Exception as e:
     print(f"Failed to establish initial AWS connection: {str(e)}")
 
 # Set up Discord bot
+load_dotenv()
+
 TOKEN = os.getenv("TOKEN")
 
 intents = discord.Intents.default()
@@ -65,8 +56,6 @@ tree = discord.app_commands.CommandTree(client)
 async def on_ready():
     print("Executing on_ready...")
     await tree.sync()
-    channel = client.get_channel(DISCORD_CHANNEL)
-    await channel.send("Ready to remember, boss!")
 
 
 @tree.command(
@@ -79,7 +68,9 @@ async def climb_tracker(interaction, difficulty: str, sends: int):
 
     print("Executing " + tracker + "...")
     user_id = str(interaction.user.id)
-    removing = False
+    removing = (
+        False  # adding and removing commands share the difficulty_validation function
+    )
     data_valid, difficulty = difficulty_validation(difficulty, sends, removing)
     if data_valid == True:
         try:
@@ -155,7 +146,6 @@ async def reset_data(interaction):
     description="Remove climbs from your history.  Input number < 0 (eg. -1, -2, ...)",
 )
 async def remove(interaction, difficulty: str, sends: int):
-    print("Executing remove_climb")
     print("Executing " + remove_command + "...")
     user_id = str(interaction.user.id)
     removing = True
