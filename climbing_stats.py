@@ -183,9 +183,39 @@ def generate_stats_summary(user_data):
         user_data["climbing_data"].items(), key=lambda x: display_sort(x[0])
     )
 
+    boulder_grades = []
+    route_grades = []
+
     for _, (diff, sends) in enumerate(sorted_difficulties):
         summary += f"\n{diff:<6} {sends:>3} sends"
+        grade_value = -1 * display_sort(diff)
+        if diff.startswith("V"):
+            raw_grade = float(diff[1:])
+            boulder_grades.extend([raw_grade] * int(sends))
+        else:
+            route_grades.extend([grade_value] * int(sends))
 
     total_sends = sum(sends for _, sends in sorted_difficulties)
-    summary += f"\n\nTotal Sends: {total_sends}```"
+    summary += f"\n\nTotal Sends: {total_sends}"
+
+    if boulder_grades:
+        avg_boulder = sum(boulder_grades) / len(boulder_grades)
+        summary += f"\nAverage Boulder Grade: V{avg_boulder:.1f}"
+    if route_grades:
+        avg_route = sum(route_grades) / len(route_grades)
+        whole_grade = int(avg_route)  # This will be 10, 11, etc.
+        decimal_part = avg_route - whole_grade
+        letter_grade = ""
+        if decimal_part >= 0.35:
+            letter_grade = "d"
+        elif decimal_part >= 0.25:
+            letter_grade = "c"
+        elif decimal_part >= 0.15:
+            letter_grade = "b"
+        elif decimal_part >= 0.05:
+            letter_grade = "a"
+        # Correct format for standard notation  # <- Add this line
+        summary += f"\nAverage Route Grade: 5.{whole_grade % 100}{letter_grade}"  # <- Modified this line: use modulo to remove leading 5
+
+    summary += "```"
     return summary

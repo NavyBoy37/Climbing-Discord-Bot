@@ -1,8 +1,7 @@
 """
 Changes:
-removed discord_channel.env import
-removed startup message
-started working on readme
+-Updated generate_stats_summary
+The above changes are to introduce climbing difficulty averages
 """
 
 from dotenv import load_dotenv
@@ -20,10 +19,9 @@ from dynamo_functions import (
 )
 
 # TODO: Add readme
-# TODO: Add some kind of rolling average
+# TODO: Add color configurable "Gym Mode" to better represent V grades
 # TODO: Add /help documentation
 # TODO: Get date of entries with discord.py and add it to dynamo
-# TODO: Create some kind of metric for showing improvement over time.
 
 
 """
