@@ -22,6 +22,7 @@ from dynamo_functions import (
 # TODO: Add color configurable "Gym Mode" to better represent V grades
 # TODO: Add /help documentation
 # TODO: Get date of entries with discord.py and add it to dynamo
+# TODO: Make serverless
 
 
 """
